@@ -493,9 +493,9 @@ const CTR_ADDRESS  = "0xF3672F0cF2E45B28AC4a1D50FD8aC2eB555c21FC";
 const CRONOS_RPC   = "https://evm.cronos.org";
 const CRONOS_CHAIN_ID = "0x19"; // 25
 const MIN_BALANCE  = 1_000_000;
-const GH_REPO      = "cronostreasury/CTR-Governance";
-const GH_API       = "https://api.github.com/repos/" + GH_REPO;
-const PROPOSAL_LABEL = "proposal";
+const JSONBIN_ID   = "69b30d90b7ec241ddc62e12e";
+const JSONBIN_KEY  = "$2a$10$ywIr1Vc5le7rb.oJdY5BouLGU/3TdbjCP1jVxfsg1VwG6jnOjqU1y";
+const JSONBIN_URL  = "https://api.jsonbin.io/v3/b/" + JSONBIN_ID;
 
 // ── STATE ──
 let wallet = null;
@@ -524,55 +524,55 @@ function isWhitelisted(addr) {
   return addr && whitelist.includes(addr.toLowerCase());
 }
 
-// ── LOAD PROPOSALS FROM GITHUB ISSUES ──
+// ── JSONBIN API ──
+async function dbRead() {
+  const res = await fetch(JSONBIN_URL + "/latest", {
+    headers: { "X-Access-Key": JSONBIN_KEY }
+  });
+  const json = await res.json();
+  return json.record || { proposals: [], votes: {} };
+}
+
+async function dbWrite(data) {
+  await fetch(JSONBIN_URL, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Access-Key": JSONBIN_KEY
+    },
+    body: JSON.stringify(data)
+  });
+}
+
+// ── LOAD PROPOSALS ──
 async function loadProposals() {
   const list = document.getElementById("proposalsList");
   list.innerHTML = `<div class="empty" style="color:var(--muted)">⏳ Loading proposals…</div>`;
   try {
-    const res = await fetch(`${GH_API}/issues?labels=${PROPOSAL_LABEL}&state=all&per_page=50`, {
-      headers: { "Accept": "application/vnd.github.v3+json" }
-    });
-    const issues = await res.json();
-    if (!Array.isArray(issues)) { renderProposals(); return; }
-
-    proposals = issues.map(issue => {
-      // Parse metadata from issue body
-      const body = issue.body || "";
-      const meta = parseIssueMeta(body);
-      const endsAt = meta.endsAt || (new Date(issue.created_at).getTime() + 5*86400000);
-      const now = Date.now();
-      let status = "active";
-      if (issue.state === "closed") {
-        // check if passed label exists
-        const labels = issue.labels.map(l => l.name);
-        status = labels.includes("passed") ? "passed" : "failed";
-      } else if (endsAt < now) {
-        status = "ended";
-      }
-      // reactions: +1 = yes, -1 = no, confused = abstain
-      const r = issue.reactions || {};
-      const issueId = "CTR-" + String(issue.number).padStart(3,"0");
-      votes[issueId] = {
-        yes: (r["+1"] || 0) * 1_000_000,
-        no:  (r["-1"] || 0) * 1_000_000,
-        abstain: (r["confused"] || 0) * 1_000_000,
-        voters: new Set(),
+    const data = await dbRead();
+    proposals = (data.proposals || []).map(p => ({...p}));
+    // restore votes with Sets
+    votes = {};
+    const rawVotes = data.votes || {};
+    for (const id in rawVotes) {
+      const v = rawVotes[id];
+      votes[id] = {
+        yes: v.yes || 0,
+        no: v.no || 0,
+        abstain: v.abstain || 0,
+        voters: new Set(v.voters || []),
         myVote: null,
-        issueNumber: issue.number,
-        issueUrl: issue.html_url,
       };
-      return {
-        id: issueId,
-        title: issue.title,
-        desc: meta.desc || body.split("\n").slice(0,3).join(" ").replace(/##.*?\n/g,"").trim().slice(0,300),
-        tags: [meta.category || "protocol"],
-        status,
-        created: new Date(issue.created_at).getTime(),
-        endsAt,
-        proposer: meta.wallet || issue.user.login,
-        issueNumber: issue.number,
-        issueUrl: issue.html_url,
-      };
+    }
+    // restore myVote from localStorage
+    proposals.forEach(p => {
+      const saved = localStorage.getItem("vote_" + p.id);
+      if (saved && votes[p.id]) votes[p.id].myVote = saved;
+    });
+    // update status based on endsAt
+    const now = Date.now();
+    proposals.forEach(p => {
+      if (p.status === "active" && p.endsAt < now) p.status = "ended";
     });
   } catch(e) {
     console.error("Failed to load proposals:", e);
@@ -580,20 +580,6 @@ async function loadProposals() {
   }
   updateStats();
   renderProposals();
-}
-
-function parseIssueMeta(body) {
-  const meta = {};
-  const lines = body.split("\n");
-  lines.forEach(line => {
-    const m = line.match(/^<!--meta:(.+):(.+)-->$/);
-    if (m) meta[m[1].trim()] = m[2].trim();
-  });
-  // parse description (everything after meta lines)
-  const descLines = lines.filter(l => !l.startsWith("<!--meta:"));
-  meta.desc = descLines.join(" ").replace(/#{1,3} /g,"").trim().slice(0,400);
-  if (meta.endsAt) meta.endsAt = parseInt(meta.endsAt);
-  return meta;
 }
 
 // ── INIT DATA ──
@@ -871,30 +857,41 @@ async function confirmVote() {
   const msg = `CTR Governance Vote\nProposal: ${proposalId}\nChoice: ${choice.toUpperCase()}\nVoter: ${wallet}\nTimestamp: ${Date.now()}`;
   try {
     const sig = await window.ethereum.request({ method: "personal_sign", params: [msg, wallet] });
-    // Accept vote
-    applyVote(proposalId, choice, sig);
+    await applyVote(proposalId, choice, sig);
     closeVoteModal();
     showToast(`✓ Vote recorded for ${proposalId}`, "success");
   } catch(e) {
     if(e.code === 4001) { showToast("Vote cancelled.", "info"); }
     else { 
-      // demo fallback
-      applyVote(proposalId, choice, "demo-sig");
+      await applyVote(proposalId, choice, "demo-sig");
       closeVoteModal();
       showToast(`✓ Vote recorded for ${proposalId}`, "success");
     }
   }
 }
 
-function applyVote(proposalId, choice, sig) {
+async function applyVote(proposalId, choice, sig) {
   if(!votes[proposalId]) votes[proposalId] = { yes:0, no:0, abstain:0, voters: new Set(), myVote:null };
   const v = votes[proposalId];
   v[choice] += ctrBalance;
   v.voters.add(wallet);
   v.myVote = choice;
+  // save myVote in localStorage so it persists on reload
+  localStorage.setItem("vote_" + proposalId, choice);
   pendingVote = null;
   renderProposals();
   updateStats();
+  // persist to JSONBin
+  try {
+    const data = await dbRead();
+    if (!data.votes) data.votes = {};
+    if (!data.votes[proposalId]) data.votes[proposalId] = { yes:0, no:0, abstain:0, voters:[] };
+    data.votes[proposalId][choice] = (data.votes[proposalId][choice] || 0) + ctrBalance;
+    if (!data.votes[proposalId].voters.includes(wallet)) {
+      data.votes[proposalId].voters.push(wallet);
+    }
+    await dbWrite(data);
+  } catch(e) { console.error("Vote save error:", e); }
 }
 
 // ── PROPOSE ──
@@ -922,50 +919,41 @@ async function submitProposal() {
   const msg = `CTR Governance Proposal\nTitle: ${title}\nAuthor: ${wallet}\nTimestamp: ${Date.now()}`;
   try {
     const sig = await window.ethereum.request({ method: "personal_sign", params: [msg, wallet] });
-    addProposal(title, desc, cat, dur, sig);
+    await addProposal(title, desc, cat, dur, sig);
   } catch(e) {
     if(e.code === 4001) { showToast("Proposal cancelled.", "info"); }
-    else { addProposal(title, desc, cat, dur, "demo-sig"); }
+    else { await addProposal(title, desc, cat, dur, "demo-sig"); }
   }
-  btn.disabled = false; btn.textContent = "Submit Proposal";
 }
 
-function addProposal(title, desc, cat, durDays, sig) {
-  const endsAt = Date.now() + durDays * 86400000;
-  const issueBody = [
-    `<!--meta:category:${cat}-->`,
-    `<!--meta:wallet:${wallet}-->`,
-    `<!--meta:endsAt:${endsAt}-->`,
-    `<!--meta:sig:${sig.slice(0,20)}...-->`,
-    ``,
-    `## Description`,
-    desc,
-    ``,
-    `---`,
-    `**Voting ends:** ${new Date(endsAt).toUTCString()}`,
-    `**Proposer:** ${wallet}`,
-    `**Category:** ${cat}`,
-    ``,
-    `> Vote via [CTR Governance](https://cronostreasury.github.io/CTR-Governance)`,
-  ].join("\n");
-
-  // Open GitHub issue creation page pre-filled
-  const params = new URLSearchParams({
-    title: title,
-    body: issueBody,
-    labels: PROPOSAL_LABEL,
-  });
-  const url = `https://github.com/${GH_REPO}/issues/new?${params.toString()}`;
-
-  document.getElementById("pTitle").value = "";
-  document.getElementById("pDesc").value = "";
-  closePropose();
-
-  showToast("🔗 Opening GitHub to publish proposal…", "info");
-  setTimeout(() => window.open(url, "_blank"), 800);
-
-  // Reload proposals after a delay
-  setTimeout(() => loadProposals(), 5000);
+async function addProposal(title, desc, cat, durDays, sig) {
+  const btn = document.getElementById("btnSubmitPropose");
+  btn.disabled = true; btn.textContent = "Saving…";
+  try {
+    const data = await dbRead();
+    const now = Date.now();
+    const newId = "CTR-" + String((data.proposals || []).length).padStart(3, "0");
+    const proposal = {
+      id: newId, title, desc,
+      tags: [cat], status: "active",
+      created: now,
+      endsAt: now + durDays * 86400000,
+      proposer: truncAddr(wallet),
+    };
+    data.proposals = [proposal, ...(data.proposals || [])];
+    if (!data.votes) data.votes = {};
+    data.votes[newId] = { yes: 0, no: 0, abstain: 0, voters: [] };
+    await dbWrite(data);
+    document.getElementById("pTitle").value = "";
+    document.getElementById("pDesc").value = "";
+    closePropose();
+    showToast("🎉 Proposal " + newId + " submitted!", "success");
+    await loadProposals();
+  } catch(e) {
+    showToast("Error saving proposal. Try again.", "error");
+    console.error(e);
+  }
+  btn.disabled = false; btn.textContent = "Submit Proposal";
 }
 
 // ── TABS (header) ──
@@ -1016,6 +1004,7 @@ document.getElementById("voteModal").addEventListener("click", e => { if(e.targe
 initData();
 loadWhitelist();
 loadProposals();
+
 </script>
 </body>
 </html>
