@@ -366,7 +366,7 @@
     <span class="ws-balance" id="wsBalance" style="display:none"></span>
     <span class="ws-badge" id="wsBadge" style="display:none"></span>
   </div>
-  <button class="btn-connect" id="btnConnect" onclick="handleWalletBtn()">Connect Wallet</button>
+  <button class="btn-connect" id="btnConnect" onclick="handleWalletBtn()" type="button">Connect Wallet</button>
 </div>
 
 <!-- MAIN -->
@@ -700,6 +700,7 @@ function updateWalletUI() {
     propose.disabled = true;
   }
   btn.textContent = "Disconnect";
+  btn.disabled = false;
 }
 
 function disconnectWallet() {
@@ -838,8 +839,13 @@ function renderCard(p) {
     <div class="pc-foot">
       ${timeStr}
       ${voteHtml}
+      ${(wallet && wallet.toLowerCase() === DEV_WALLET && isActive) ? '<div style="display:flex;gap:8px;margin-left:auto"><button class="btn-admin btn-end" onclick="endProposal(\'' + p.id + '\')">⏹ End</button><button class="btn-admin btn-delete" onclick="deleteProposal(\'' + p.id + '\')">🗑 Delete</button></div>' : ''}
     </div>
   </div>`;
+}
+
+function isDevWallet() {
+  return wallet && wallet.toLowerCase() === DEV_WALLET;
 }
 
 // ── ADMIN ACTIONS ──
