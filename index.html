@@ -394,9 +394,8 @@
 
   <!-- INFO -->
   <div class="info-box">
-    🔒 <b>Voting eligibility</b> is verified on-chain by reading your live CTR balance from the Cronos EVM
-    (<code>0xF3672F0cF2E45B28AC4a1D50FD8aC2eB555c21FC</code>).
-    You need at least <b>1,000,000 CTR</b> to cast a vote. Only whitelisted wallets can submit proposals. Proposals are stored as GitHub Issues — fully transparent and permanent.
+    🔒 <b>Voting eligibility</b> is verified on-chain via your live CTR balance.
+    You need at least <b>1,000,000 CTR</b> to cast a vote. Only whitelisted wallets can submit proposals.
   </div>
 
   <!-- ELIGIBILITY GATE -->
@@ -684,6 +683,7 @@ function updateWalletUI() {
     propose.disabled = true;
   }
   btn.textContent = "Disconnect";
+  btn.onclick = null;
   btn.setAttribute("onclick", "disconnectWallet()");
 }
 
@@ -698,6 +698,7 @@ function disconnectWallet() {
   const btn = document.getElementById("btnConnect");
   btn.textContent = "Connect Wallet";
   btn.disabled = false;
+  btn.onclick = null;
   btn.setAttribute("onclick", "connectWallet()");
   document.getElementById("btnPropose").disabled = true;
   renderProposals();
