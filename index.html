@@ -661,7 +661,7 @@ function updateWalletUI() {
     propose.disabled = true;
   }
   btn.textContent = "Disconnect";
-  btn.onclick = disconnectWallet;
+  btn.setAttribute("onclick", "disconnectWallet()");
 }
 
 function disconnectWallet() {
@@ -673,7 +673,9 @@ function disconnectWallet() {
   document.getElementById("wsBadge").style.display = "none";
   document.getElementById("eligGate").style.display = "none";
   const btn = document.getElementById("btnConnect");
-  btn.textContent = "Connect Wallet"; btn.disabled = false; btn.onclick = connectWallet;
+  btn.textContent = "Connect Wallet";
+  btn.disabled = false;
+  btn.setAttribute("onclick", "connectWallet()");
   document.getElementById("btnPropose").disabled = true;
   renderProposals();
 }
