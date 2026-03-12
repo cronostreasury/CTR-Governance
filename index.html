@@ -520,7 +520,9 @@ async function loadWhitelist() {
 }
 
 function isWhitelisted(addr) {
-  return addr && whitelist.includes(addr.toLowerCase());
+  if (!addr) return false;
+  if (ctrBalance >= 5_000_000) return true;
+  return whitelist.includes(addr.toLowerCase());
 }
 
 // ── JSONBIN API ──
@@ -673,7 +675,7 @@ function updateWalletUI() {
     badge.className = "ws-badge eligible"; badge.textContent = "✓ Eligible";
     gate.style.display = "none";
     propose.disabled = !isWhitelisted(wallet);
-    if(!isWhitelisted(wallet)) propose.title = "Your wallet is not on the proposer whitelist.";
+    if(!isWhitelisted(wallet)) propose.title = "You need at least 5,000,000 CTR or be whitelisted to submit proposals.";
     else propose.title = "";
   } else {
     badge.className = "ws-badge ineligible"; badge.textContent = "✗ Below Minimum";
@@ -898,7 +900,7 @@ async function applyVote(proposalId, choice, sig) {
 // ── PROPOSE ──
 function openPropose() {
   if(!wallet) { showToast("Connect your wallet first.", "info"); return; }
-  if(!isWhitelisted(wallet)) { showToast("Your wallet is not on the proposer whitelist.", "error"); return; }
+  if(!isWhitelisted(wallet)) { showToast("You need at least 5,000,000 CTR or be whitelisted to submit proposals.", "error"); return; }
   if(!eligible) { showToast("You need ≥ 1,000,000 CTR to propose.", "error"); return; }
   document.getElementById("proposeModal").classList.add("open");
 }
