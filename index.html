@@ -404,7 +404,7 @@
 
   <!-- INFO -->
   <div class="info-box">
-    🔒 <b>Voting:</b> Requires at least <b>1,000,000 CTR</b> in your wallet. &nbsp;|&nbsp; 📝 <b>Proposals:</b> Requires at least <b>5,000,000 CTR</b> or a whitelisted wallet.
+    🔒 <b>Voting:</b> Requires at least <b>1,000,000 CTR</b> in your wallet. &nbsp;|&nbsp; 📝 <b>Proposals:</b> Requires at least <b>5,000,000 CTR</b>.
   </div>
 
   <!-- ELIGIBILITY GATE -->
@@ -661,8 +661,8 @@ async function refreshBalance() {
     const raw = BigInt(json.result || "0x0");
     ctrBalance = Number(raw) / 1e18;
   } catch(e) {
-    // if RPC fails (no network), simulate balance for demo
     ctrBalance = 0;
+    showToast("Could not read CTR balance. Check your connection.", "error");
   }
 
   eligible = ctrBalance >= MIN_BALANCE;
@@ -908,15 +908,20 @@ async function confirmVote() {
     showToast(`✓ Vote recorded for ${proposalId}`, "success");
   } catch(e) {
     if(e.code === 4001) { showToast("Vote cancelled.", "info"); }
-    else { 
-      await applyVote(proposalId, choice, "demo-sig");
-      closeVoteModal();
-      showToast(`✓ Vote recorded for ${proposalId}`, "success");
-    }
+    else { showToast("Signing failed. Please try again.", "error"); }
   }
 }
 
 async function applyVote(proposalId, choice, sig) {
+  // Double-vote check against live DB
+  try {
+    const liveData = await dbRead();
+    const liveV = (liveData.votes || {})[proposalId];
+    if (liveV && liveV.voters && liveV.voters.includes(wallet.toLowerCase())) {
+      showToast("You have already voted on this proposal.", "error");
+      pendingVote = null; return;
+    }
+  } catch(e) {}
   if(!votes[proposalId]) votes[proposalId] = { yes:0, no:0, abstain:0, voters: new Set(), myVote:null };
   const v = votes[proposalId];
   v[choice] += ctrBalance;
@@ -933,8 +938,8 @@ async function applyVote(proposalId, choice, sig) {
     if (!data.votes) data.votes = {};
     if (!data.votes[proposalId]) data.votes[proposalId] = { yes:0, no:0, abstain:0, voters:[] };
     data.votes[proposalId][choice] = (data.votes[proposalId][choice] || 0) + ctrBalance;
-    if (!data.votes[proposalId].voters.includes(wallet)) {
-      data.votes[proposalId].voters.push(wallet);
+    if (!data.votes[proposalId].voters.includes(wallet.toLowerCase())) {
+      data.votes[proposalId].voters.push(wallet.toLowerCase());
     }
     await dbWrite(data);
   } catch(e) { console.error("Vote save error:", e); }
@@ -968,7 +973,7 @@ async function submitProposal() {
     await addProposal(title, desc, cat, dur, sig);
   } catch(e) {
     if(e.code === 4001) { showToast("Proposal cancelled.", "info"); }
-    else { await addProposal(title, desc, cat, dur, "demo-sig"); }
+    else { showToast("Signing failed. Please try again.", "error"); }
   }
 }
 
@@ -977,6 +982,12 @@ async function addProposal(title, desc, cat, durDays, sig) {
   btn.disabled = true; btn.textContent = "Saving…";
   try {
     const data = await dbRead();
+    // Prevent duplicate titles
+    const exists = (data.proposals || []).some(p => p.title.toLowerCase() === title.toLowerCase());
+    if (exists) {
+      showToast("A proposal with this title already exists.", "error");
+      btn.disabled = false; btn.textContent = "Submit Proposal"; return;
+    }
     const now = Date.now();
     const newId = "CTR-" + String((data.proposals || []).length).padStart(3, "0");
     const proposal = {
