@@ -325,6 +325,16 @@
   }
   #eligGate b { color: var(--red); }
 
+  /* ── ADMIN BUTTONS ── */
+  .btn-admin {
+    padding: 6px 14px; border-radius: 8px; border: 1px solid;
+    font-family: 'DM Mono', monospace; font-size: 11px; font-weight: 500;
+    cursor: pointer; transition: all .2s; letter-spacing: .04em;
+  }
+  .btn-end    { background: rgba(245,158,11,.08); border-color: rgba(245,158,11,.3); color: var(--amber); }
+  .btn-delete { background: rgba(255,107,107,.08); border-color: rgba(255,107,107,.3); color: var(--red); }
+  .btn-admin:hover { filter: brightness(1.2); transform: translateY(-1px); }
+
   /* responsive */
   @media(max-width:600px) {
     .hero-stats { flex-wrap: wrap; gap: 20px; }
@@ -356,7 +366,7 @@
     <span class="ws-balance" id="wsBalance" style="display:none"></span>
     <span class="ws-badge" id="wsBadge" style="display:none"></span>
   </div>
-  <button class="btn-connect" id="btnConnect" onclick="connectWallet()">Connect Wallet</button>
+  <button class="btn-connect" id="btnConnect" onclick="handleWalletBtn()">Connect Wallet</button>
 </div>
 
 <!-- MAIN -->
@@ -430,7 +440,7 @@
   <div class="modal">
     <button class="modal-close" onclick="closePropose()">✕</button>
     <div class="modal-title">New Proposal</div>
-    <div class="modal-sub">Submit a governance proposal. Requires ≥ 1,000,000 CTR in your wallet.</div>
+    <div class="modal-sub">Submit a governance proposal. Requires ≥ 5,000,000 CTR or whitelisted wallet.</div>
 
     <div class="form-group">
       <label class="form-label">PROPOSAL TITLE</label>
@@ -492,6 +502,7 @@ const CTR_ADDRESS  = "0xF3672F0cF2E45B28AC4a1D50FD8aC2eB555c21FC";
 const CRONOS_RPC   = "https://evm.cronos.org";
 const CRONOS_CHAIN_ID = "0x19"; // 25
 const MIN_BALANCE  = 1_000_000;
+const DEV_WALLET   = "0xceefcbef60f0bc263eb998989d79d428b1303884";
 const JSONBIN_ID   = "69b30d90b7ec241ddc62e12e";
 const JSONBIN_KEY  = "$2a$10$ywIr1Vc5le7rb.oJdY5BouLGU/3TdbjCP1jVxfsg1VwG6jnOjqU1y";
 const JSONBIN_URL  = "https://api.jsonbin.io/v3/b/" + JSONBIN_ID;
@@ -599,6 +610,10 @@ function updateStats() {
 }
 
 // ── WALLET ──
+function handleWalletBtn() {
+  if (wallet) { disconnectWallet(); } else { connectWallet(); }
+}
+
 async function connectWallet() {
   const btn = document.getElementById("btnConnect");
   if (!window.ethereum) {
@@ -685,8 +700,6 @@ function updateWalletUI() {
     propose.disabled = true;
   }
   btn.textContent = "Disconnect";
-  btn.onclick = null;
-  btn.setAttribute("onclick", "disconnectWallet()");
 }
 
 function disconnectWallet() {
@@ -700,8 +713,6 @@ function disconnectWallet() {
   const btn = document.getElementById("btnConnect");
   btn.textContent = "Connect Wallet";
   btn.disabled = false;
-  btn.onclick = null;
-  btn.setAttribute("onclick", "connectWallet()");
   document.getElementById("btnPropose").disabled = true;
   renderProposals();
 }
@@ -829,6 +840,33 @@ function renderCard(p) {
       ${voteHtml}
     </div>
   </div>`;
+}
+
+// ── ADMIN ACTIONS ──
+async function endProposal(proposalId) {
+  if(!isDevWallet()) return;
+  if(!confirm("End this proposal?")) return;
+  try {
+    const data = await dbRead();
+    const p = data.proposals.find(x => x.id === proposalId);
+    if(p) p.status = "passed";
+    await dbWrite(data);
+    showToast("✓ Proposal ended.", "success");
+    await loadProposals();
+  } catch(e) { showToast("Error.", "error"); }
+}
+
+async function deleteProposal(proposalId) {
+  if(!isDevWallet()) return;
+  if(!confirm("Delete this proposal permanently?")) return;
+  try {
+    const data = await dbRead();
+    data.proposals = data.proposals.filter(x => x.id !== proposalId);
+    if(data.votes) delete data.votes[proposalId];
+    await dbWrite(data);
+    showToast("🗑 Proposal deleted.", "success");
+    await loadProposals();
+  } catch(e) { showToast("Error.", "error"); }
 }
 
 // ── VOTING ──
