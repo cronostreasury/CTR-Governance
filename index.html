@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>CTR Governance — Cronos Treasury Reserve</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Mono:wght@400;500&family=Space+Grotesk:wght@300;400;500&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -29,7 +29,7 @@
   body {
     background: var(--bg);
     color: var(--text);
-    font-family: 'Space Grotesk', sans-serif;
+    font-family: 'Inter', sans-serif;
     min-height: 100vh;
     overflow-x: hidden;
   }
@@ -55,7 +55,7 @@
     display: flex; align-items: center; gap: 16px; height: 60px;
   }
   .logo-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--teal); box-shadow: 0 0 10px var(--teal); }
-  .logo-text { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 15px; color: var(--teal); letter-spacing: .06em; }
+  .logo-text { font-family: 'Inter', sans-serif; font-weight: 800; font-size: 15px; color: var(--teal); letter-spacing: .06em; }
   .logo-sub  { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--dim); letter-spacing: .1em; margin-left: 4px; }
   .header-nav { margin-left: auto; display: flex; align-items: center; gap: 8px; }
   .nav-pill {
@@ -120,7 +120,7 @@
     margin-bottom: 16px;
   }
   .hero h1 {
-    font-family: 'Syne', sans-serif; font-weight: 800;
+    font-family: 'Inter', sans-serif; font-weight: 800;
     font-size: clamp(28px, 5vw, 48px); line-height: 1.1;
     margin-bottom: 12px;
   }
@@ -132,7 +132,7 @@
     border: 1px solid var(--border); border-radius: 12px;
     width: fit-content;
   }
-  .hstat-val { font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 700; }
+  .hstat-val { font-family: 'Inter', sans-serif; font-size: 22px; font-weight: 700; }
   .hstat-lbl { font-size: 11px; color: var(--dim); letter-spacing: .08em; margin-top: 2px; }
 
   /* ── SECTION TITLE ── */
@@ -141,7 +141,7 @@
     margin-bottom: 20px;
   }
   .section-title {
-    font-family: 'Syne', sans-serif; font-weight: 700; font-size: 18px;
+    font-family: 'Inter', sans-serif; font-weight: 700; font-size: 18px;
     display: flex; align-items: center; gap: 10px;
   }
   .section-title::before {
@@ -176,7 +176,7 @@
   }
   .pc-id { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--dim); white-space: nowrap; padding-top: 3px; }
   .pc-meta { flex: 1; }
-  .pc-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 16px; margin-bottom: 6px; }
+  .pc-title { font-family: 'Inter', sans-serif; font-weight: 700; font-size: 16px; margin-bottom: 6px; }
   .pc-desc  { font-size: 13px; color: var(--muted); line-height: 1.6; }
   .pc-tags  { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
   .tag {
@@ -261,7 +261,7 @@
     transform: translateY(20px); transition: transform .3s;
   }
   .modal-overlay.open .modal { transform: translateY(0); }
-  .modal-title { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 20px; margin-bottom: 6px; }
+  .modal-title { font-family: 'Inter', sans-serif; font-weight: 800; font-size: 20px; margin-bottom: 6px; }
   .modal-sub   { font-size: 13px; color: var(--muted); margin-bottom: 24px; }
   .modal-close {
     position: absolute; top: 20px; right: 20px; background: none;
@@ -274,7 +274,7 @@
   .form-input, .form-select, .form-textarea {
     width: 100%; padding: 10px 14px;
     background: var(--bg3); border: 1px solid var(--border2);
-    border-radius: 8px; color: var(--text); font-family: 'Space Grotesk', sans-serif;
+    border-radius: 8px; color: var(--text); font-family: 'Inter', sans-serif;
     font-size: 14px; transition: border-color .2s; outline: none;
   }
   .form-input:focus, .form-select:focus, .form-textarea:focus { border-color: var(--teal); }
@@ -503,68 +503,28 @@ let pendingVote = null; // { proposalId, choice }
 let proposals = [];
 let votes = {}; // proposalId -> { yes, no, abstain, voters: Set, myVote }
 
-// ── SEED DATA ──
-function initData() {
-  const now = Date.now();
-  proposals = [
-    {
-      id: "CTR-001",
-      title: "Increase Buyback Allocation from 10% to 15%",
-      desc: "This proposal seeks to increase the portion of treasury yield dedicated to CTR buybacks from 10% to 15%. The additional 5% would be sourced from USDC yield on the Wolfswap vault. Modelling suggests this would accelerate burn velocity by ~40% without materially impacting treasury growth.",
-      tags: ["treasury"],
-      status: "active",
-      created: now - 2*86400000,
-      endsAt: now + 3*86400000,
-      proposer: "0xaBcD...1234",
-    },
-    {
-      id: "CTR-002",
-      title: "Add WBTC as a Treasury Reserve Asset",
-      desc: "Proposal to diversify the treasury by allocating up to 5% of treasury value to wrapped Bitcoin (WBTC) on Cronos. This would provide an uncorrelated hedge against CRO ecosystem volatility while maintaining on-chain verifiability.",
-      tags: ["treasury", "parameter"],
-      status: "active",
-      created: now - 1*86400000,
-      endsAt: now + 4*86400000,
-      proposer: "0xdEf0...5678",
-    },
-    {
-      id: "CTR-003",
-      title: "Reduce Minimum Voting Threshold to 500K CTR",
-      desc: "Lower the governance participation threshold from 1,000,000 CTR to 500,000 CTR to broaden community participation. A wider voter base increases legitimacy of outcomes while still filtering out dust wallets.",
-      tags: ["protocol"],
-      status: "active",
-      created: now - 3*86400000,
-      endsAt: now + 2*86400000,
-      proposer: "0x1234...aAbB",
-    },
-    {
-      id: "CTR-000",
-      title: "Genesis: Establish CTR Governance Framework",
-      desc: "Foundational proposal establishing the rules of CTR governance: quorum of 5% circulating supply, 24h time lock on passed proposals, and veto rights for multi-sig holders in emergency situations. This proposal passed and is now the governance standard.",
-      tags: ["protocol"],
-      status: "passed",
-      created: now - 14*86400000,
-      endsAt: now - 7*86400000,
-      proposer: "0x96a6...5f20",
-    },
-    {
-      id: "CTR-P01",
-      title: "Emergency: Pause Staking During Audit",
-      desc: "Emergency proposal to temporarily pause new stake deposits while the Wolfswap vault undergoes a third-party security audit. Existing stakes remain unaffected. Voting period was abbreviated to 24 hours given the urgency.",
-      tags: ["emergency", "protocol"],
-      status: "failed",
-      created: now - 10*86400000,
-      endsAt: now - 9*86400000,
-      proposer: "0xaAbB...cCdD",
-    },
-  ];
+// ── WHITELIST ──
+let whitelist = [];
 
-  // seed vote tallies
-  votes["CTR-001"] = { yes: 42_800_000, no: 12_200_000, abstain: 3_000_000, voters: new Set(["0x111","0x222","0x333"]), myVote: null };
-  votes["CTR-002"] = { yes: 18_500_000, no: 31_000_000, abstain: 8_000_000, voters: new Set(["0x444","0x555"]),           myVote: null };
-  votes["CTR-003"] = { yes: 55_000_000, no: 5_000_000,  abstain: 2_000_000, voters: new Set(["0x666","0x777","0x888","0x999"]), myVote: null };
-  votes["CTR-000"] = { yes: 88_000_000, no: 4_000_000,  abstain: 1_000_000, voters: new Set(["0xaaa","0xbbb","0xccc","0xddd","0xeee"]), myVote: null };
-  votes["CTR-P01"] = { yes: 20_000_000, no: 65_000_000, abstain: 3_000_000, voters: new Set(["0xfff","0x1a1"]), myVote: null };
+async function loadWhitelist() {
+  try {
+    const res = await fetch("./whitelist.json");
+    const data = await res.json();
+    whitelist = (data.proposers || []).map(a => a.toLowerCase());
+  } catch(e) {
+    console.warn("Could not load whitelist.json", e);
+    whitelist = [];
+  }
+}
+
+function isWhitelisted(addr) {
+  return addr && whitelist.includes(addr.toLowerCase());
+}
+
+// ── INIT DATA ──
+function initData() {
+  proposals = [];
+  votes = {};
 }
 
 function updateStats() {
@@ -652,7 +612,9 @@ function updateWalletUI() {
   if(eligible) {
     badge.className = "ws-badge eligible"; badge.textContent = "✓ Eligible";
     gate.style.display = "none";
-    propose.disabled = false;
+    propose.disabled = !isWhitelisted(wallet);
+    if(!isWhitelisted(wallet)) propose.title = "Your wallet is not on the proposer whitelist.";
+    else propose.title = "";
   } else {
     badge.className = "ws-badge ineligible"; badge.textContent = "✗ Below Minimum";
     dot.className = "ws-dot ineligible";
@@ -862,6 +824,8 @@ function applyVote(proposalId, choice, sig) {
 
 // ── PROPOSE ──
 function openPropose() {
+  if(!wallet) { showToast("Connect your wallet first.", "info"); return; }
+  if(!isWhitelisted(wallet)) { showToast("Your wallet is not on the proposer whitelist.", "error"); return; }
   if(!eligible) { showToast("You need ≥ 1,000,000 CTR to propose.", "error"); return; }
   document.getElementById("proposeModal").classList.add("open");
 }
@@ -957,6 +921,7 @@ document.getElementById("voteModal").addEventListener("click", e => { if(e.targe
 initData();
 updateStats();
 renderProposals();
+loadWhitelist();
 </script>
 </body>
 </html>
