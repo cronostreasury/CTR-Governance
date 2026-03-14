@@ -259,37 +259,7 @@ main{position:relative;z-index:1;max-width:1060px;margin:0 auto;padding:48px 24p
 #toast.error{border-color:rgba(255,107,107,.35);color:var(--red)}
 #toast.info{border-color:rgba(124,58,237,.35);color:#a78bfa}
 
-/* ── WOLFIES ── */
-@keyframes wolfie-float{0%,100%{transform:translateY(0px)}50%{transform:translateY(-12px)}}
-@keyframes wolfie-float2{0%,100%{transform:translateY(0px)}50%{transform:translateY(-8px)}}
-
-.wolfie-hero {
-  position:fixed;
-  right:0;
-  bottom:0;
-  width:220px;
-  opacity:.9;
-  pointer-events:none;
-  z-index:5;
-  animation:wolfie-float 5s ease-in-out infinite;
-  filter:drop-shadow(-4px 0 24px rgba(100,255,218,.2));
-  mix-blend-mode:normal;
-}
-.wolfie-proposals {
-  position:fixed;
-  right:210px;
-  bottom:0;
-  width:190px;
-  opacity:.8;
-  pointer-events:none;
-  z-index:4;
-  animation:wolfie-float2 6s ease-in-out infinite reverse;
-  filter:drop-shadow(-4px 0 16px rgba(100,255,218,.15));
-  mix-blend-mode:normal;
-}
-@media(max-width:1200px){.wolfie-proposals{display:none}}
-@media(max-width:900px){.wolfie-hero{width:160px}}
-@media(max-width:600px){.wolfie-hero{display:none}}
+@media(max-width:640px){.wolfie-hero{display:none}}
 
 @media(max-width:640px){
   .stat-row{gap:8px}
@@ -634,7 +604,5 @@ document.getElementById("voteModal").addEventListener("click",e=>{if(e.target.id
 
 initData();loadWhitelist();loadProposals();
 </script>
-<img class="wolfie-proposals" src="countingvotestransparent.png" alt=""/>
-<img class="wolfie-hero" src="nachdenkendwolfie.png" alt=""/>
 </body>
 </html>
