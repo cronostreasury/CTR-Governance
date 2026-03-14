@@ -427,7 +427,17 @@ async function loadProposals(){
     proposals=(data.proposals||[]).map(p=>({...p}));
     votes={};
     for(const id in(data.votes||{})){const v=data.votes[id];votes[id]={yes:v.yes||0,no:v.no||0,abstain:v.abstain||0,voters:new Set(v.voters||[]),myVote:null}}
-    proposals.forEach(p=>{const s=localStorage.getItem("vote_"+p.id);if(s&&votes[p.id])votes[p.id].myVote=s;if(p.status==="active"&&p.endsAt<Date.now())p.status="ended"});
+    proposals.forEach(p=>{
+      const s=localStorage.getItem("vote_"+p.id);
+      // Only restore myVote if wallet is actually recorded in DB voters
+      if(s&&votes[p.id]){
+        const dbVoters=votes[p.id].voters;
+        const walletLower=wallet?wallet.toLowerCase():null;
+        if(walletLower&&dbVoters.has(walletLower)){votes[p.id].myVote=s;}
+        else{localStorage.removeItem("vote_"+p.id);}
+      }
+      if(p.status==="active"&&p.endsAt<Date.now())p.status="ended";
+    });
   }catch(e){proposals=[]}
   updateStats();renderProposals();
 }
