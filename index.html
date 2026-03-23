@@ -178,6 +178,11 @@ main{position:relative;z-index:1;max-width:1060px;margin:0 auto;padding:48px 24p
 .pc-meta{flex:1;min-width:0}
 .pc-title{font-weight:700;font-size:16px;margin-bottom:7px;line-height:1.3}
 .pc-desc{font-size:13px;color:var(--muted);line-height:1.65;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.pc-contact{margin-top:10px;font-size:11px;color:var(--muted);font-family:'DM Mono',monospace;display:flex;flex-wrap:wrap;gap:8px}
+.pc-contact b{color:var(--text)}
+.pc-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-left:auto}
+.btn-link{padding:7px 14px;border-radius:8px;border:1px solid var(--border2);background:rgba(255,255,255,.02);color:var(--text);font-family:'DM Mono',monospace;font-size:11px;cursor:pointer;transition:all .2s;letter-spacing:.04em}
+.btn-link:hover{border-color:rgba(100,255,218,.3);color:var(--teal);transform:translateY(-1px)}
 .pc-tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:10px}
 .tag{padding:2px 8px;border-radius:4px;font-size:10px;font-family:'DM Mono',monospace;letter-spacing:.04em}
 .tag-treasury{background:rgba(100,255,218,.07);color:var(--teal);border:1px solid rgba(100,255,218,.2)}
@@ -245,6 +250,7 @@ main{position:relative;z-index:1;max-width:1060px;margin:0 auto;padding:48px 24p
 .form-textarea{resize:vertical;min-height:100px}
 .form-select option{background:var(--bg3)}
 .form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.form-help{display:block;margin-top:7px;font-size:11px;color:var(--dim);line-height:1.5}
 .btn-submit{width:100%;padding:13px;border-radius:11px;background:linear-gradient(135deg,var(--teal),var(--teal2));color:#060a10;font-weight:700;font-size:13px;border:none;cursor:pointer;font-family:'DM Mono',monospace;letter-spacing:.06em;transition:all .2s;margin-top:8px;box-shadow:0 4px 16px rgba(100,255,218,.2)}
 .btn-submit:hover{box-shadow:0 6px 24px rgba(100,255,218,.4);transform:translateY(-1px)}
 .btn-submit:disabled{opacity:.4;cursor:not-allowed;transform:none}
@@ -365,6 +371,20 @@ main{position:relative;z-index:1;max-width:1060px;margin:0 auto;padding:48px 24p
     <div class="form-group">
       <label class="form-label">DESCRIPTION</label>
       <textarea class="form-textarea" id="pDesc" placeholder="Describe what you are proposing and why. Be specific about changes to protocol parameters, treasury allocations, or policies."></textarea>
+      <span class="form-help">Die vollständige Beschreibung bleibt später für alle Voter direkt am Live-Proposal lesbar.</span>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">CONTACT TYPE</label>
+        <select class="form-select" id="pContactType">
+          <option value="x">X / Twitter</option>
+          <option value="discord">Discord</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">CONTACT USERNAME</label>
+        <input class="form-input" id="pContact" placeholder="e.g. @ctrbuilder or ctrbuilder#1234"/>
+      </div>
     </div>
     <div class="form-row">
       <div class="form-group">
@@ -387,6 +407,29 @@ main{position:relative;z-index:1;max-width:1060px;margin:0 auto;padding:48px 24p
       </div>
     </div>
     <button class="btn-submit" id="btnSubmitPropose" onclick="submitProposal()">Submit Proposal</button>
+  </div>
+</div>
+
+<!-- DETAILS MODAL -->
+<div class="modal-overlay" id="detailsModal">
+  <div class="modal" style="max-width:760px">
+    <button class="modal-close" onclick="closeDetailsModal()">✕</button>
+    <div class="modal-title" id="detailsTitle">Proposal Details</div>
+    <div class="modal-sub" id="detailsMeta">Read the full proposal before voting.</div>
+    <div style="background:var(--bg3);border:1px solid var(--border2);border-radius:12px;padding:18px 20px;margin-bottom:18px">
+      <div class="form-label" style="margin-bottom:10px">FULL DESCRIPTION</div>
+      <div id="detailsDesc" style="white-space:pre-wrap;line-height:1.8;color:var(--muted);font-size:14px"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;font-size:12px">
+      <div style="background:var(--bg3);border:1px solid var(--border2);border-radius:12px;padding:14px">
+        <div class="form-label">CONTACT</div>
+        <div id="detailsContact" style="color:var(--text);line-height:1.6"></div>
+      </div>
+      <div style="background:var(--bg3);border:1px solid var(--border2);border-radius:12px;padding:14px">
+        <div class="form-label">STATUS</div>
+        <div id="detailsStatus" style="color:var(--text);line-height:1.6"></div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -415,6 +458,34 @@ const CTR_ADDRESS="0xF3672F0cF2E45B28AC4a1D50FD8aC2eB555c21FC",CRONOS_RPC="https
 const JSONBIN_ID="69b30d90b7ec241ddc62e12e",JSONBIN_KEY="$2a$10$ywIr1Vc5le7rb.oJdY5BouLGU/3TdbjCP1jVxfsg1VwG6jnOjqU1y",JSONBIN_URL="https://api.jsonbin.io/v3/b/"+JSONBIN_ID;
 let wallet=null,ctrBalance=0,eligible=false,currentFilter="active",pendingVote=null,proposals=[],votes={},whitelist=[];
 
+function normalizeStoredProposal(p){
+  const normalized={...p};
+  normalized.tags=Array.isArray(normalized.tags)&&normalized.tags.length?normalized.tags:[normalized.category||"treasury"];
+  normalized.contactType=normalized.contactType||"";
+  normalized.contact=normalized.contact||"";
+  return normalized;
+}
+
+function getVoteState(proposalId){
+  return votes[proposalId]||{yes:0,no:0,abstain:0,voters:new Set(),myVote:null};
+}
+
+function getDerivedStatus(p){
+  const vote=getVoteState(p.id);
+  const total=vote.yes+vote.no+vote.abstain;
+  const yesPct=total>0?(vote.yes/total*100):0;
+  if(p.status==="passed"||p.status==="failed")return p.status;
+  if(p.status==="active"&&p.endsAt>Date.now())return "active";
+  return yesPct>60?"passed":"failed";
+}
+
+function hasActiveProposal(list=proposals){
+  return list.some(p=>p.status==="active"&&p.endsAt>Date.now());
+}
+
+function getContactLabel(type){return type==="discord"?"Discord":"X"}
+function escapeHtml(value=""){return String(value).replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch]||ch))}
+
 async function loadWhitelist(){try{const r=await fetch("./whitelist.json"),d=await r.json();whitelist=(d.proposers||[]).map(a=>a.toLowerCase())}catch(e){whitelist=[]}}
 function isWhitelisted(a){if(!a)return false;if(ctrBalance>=5_000_000)return true;return whitelist.includes(a.toLowerCase())}
 
@@ -425,27 +496,30 @@ async function loadProposals(){
   document.getElementById("proposalsList").innerHTML=`<div class="empty"><div class="empty-icon">⏳</div>Loading proposals…</div>`;
   try{
     const data=await dbRead();
-    proposals=(data.proposals||[]).map(p=>({...p}));
+    proposals=(data.proposals||[]).map(normalizeStoredProposal).sort((a,b)=>(b.created||0)-(a.created||0));
     votes={};
-    for(const id in(data.votes||{})){const v=data.votes[id];votes[id]={yes:v.yes||0,no:v.no||0,abstain:v.abstain||0,voters:new Set(v.voters||[]),myVote:null}}
+    for(const id in(data.votes||{})){
+      const v=data.votes[id];
+      votes[id]={yes:v.yes||0,no:v.no||0,abstain:v.abstain||0,voters:new Set(v.voters||[]),myVote:null};
+    }
     proposals.forEach(p=>{
       const s=localStorage.getItem("vote_"+p.id);
-      // Only restore myVote if wallet is actually recorded in DB voters
       if(s&&votes[p.id]){
         const dbVoters=votes[p.id].voters;
         const walletLower=wallet?wallet.toLowerCase():null;
-        if(walletLower&&dbVoters.has(walletLower)){votes[p.id].myVote=s;}
-        else{localStorage.removeItem("vote_"+p.id);}
+        if(walletLower&&dbVoters.has(walletLower))votes[p.id].myVote=s;
+        else localStorage.removeItem("vote_"+p.id);
       }
-      if(p.status==="active"&&p.endsAt<Date.now())p.status="ended";
+      if(!p.created)p.created=Date.now();
     });
-  }catch(e){proposals=[]}
+  }catch(e){proposals=[];votes={}}
   updateStats();renderProposals();
+  if(wallet)updateWalletUI();
 }
 
 function initData(){proposals=[];votes={}}
 function updateStats(){
-  document.getElementById("statActive").textContent=proposals.filter(p=>p.status==="active").length;
+  document.getElementById("statActive").textContent=proposals.filter(p=>getDerivedStatus(p)==="active").length;
   document.getElementById("statTotal").textContent=proposals.length;
   document.getElementById("statVoters").textContent=new Set(Object.values(votes).flatMap(v=>[...v.voters])).size;
 }
@@ -484,7 +558,8 @@ function updateWalletUI(){
   if(eligible){
     badge.className="ws-badge eligible";badge.textContent="✓ Eligible";
     document.getElementById("eligGate").style.display="none";
-    propose.disabled=!isWhitelisted(wallet);propose.title=isWhitelisted(wallet)?"":"Requires 5,000,000 CTR to propose.";
+    propose.disabled=!isWhitelisted(wallet)||hasActiveProposal();
+    propose.title=!isWhitelisted(wallet)?"Requires 5,000,000 CTR to propose.":hasActiveProposal()?"Only one active proposal is allowed at a time.":"";
   }else{
     badge.className="ws-badge ineligible";badge.textContent="✗ Below Minimum";dot.className="ws-dot ineligible";
     document.getElementById("eligGate").style.display="block";document.getElementById("gateBalance").textContent=fmtCTR(ctrBalance);propose.disabled=true;
@@ -512,32 +587,32 @@ function setFilter(f){
 function renderProposals(){
   const list=document.getElementById("proposalsList");
   let filtered=proposals;
-  if(currentFilter!=="all")filtered=proposals.filter(p=>p.status===currentFilter);
+  if(currentFilter!=="all")filtered=proposals.filter(p=>getDerivedStatus(p)===currentFilter);
   if(!filtered.length){list.innerHTML=`<div class="empty"><div class="empty-icon">📭</div>No ${currentFilter} proposals found.</div>`;return}
   list.innerHTML=filtered.map(p=>renderCard(p)).join("");
   setTimeout(()=>{
     filtered.forEach(p=>{
-      const v=votes[p.id];if(!v)return;
-      const total=v.yes+v.no+v.abstain||1;
+      const v=getVoteState(p.id),total=v.yes+v.no+v.abstain||1;
       ["yes","no","abstain"].forEach(k=>{
-        const pct=(v[k]/total*100).toFixed(1);
-        const bar=document.getElementById("bar-"+k+"-"+p.id),lbl=document.getElementById("pct-"+k+"-"+p.id);
-        if(bar)bar.style.width=pct+"%";if(lbl)lbl.textContent=pct+"%";
+        const pct=(v[k]/total*100).toFixed(1),bar=document.getElementById("bar-"+k+"-"+p.id),lbl=document.getElementById("pct-"+k+"-"+p.id);
+        if(bar)bar.style.width=pct+"%";
+        if(lbl)lbl.textContent=pct+"%";
       });
     });
   },60);
+  if(wallet)updateWalletUI();
 }
 
 function renderCard(p){
-  const v=votes[p.id]||{yes:0,no:0,abstain:0,voters:new Set(),myVote:null};
-  const isActive=p.status==="active",canVote=eligible&&isActive&&!v.myVote,myVote=v.myVote;
-  const statusMap={active:'<span class="pc-status-badge status-active">● Active</span>',passed:'<span class="pc-status-badge status-passed">✓ Passed</span>',failed:'<span class="pc-status-badge status-failed">✗ Failed</span>',ended:'<span class="pc-status-badge status-ended">⏱ Ended</span>'};
+  const v=getVoteState(p.id),derivedStatus=getDerivedStatus(p),isActive=derivedStatus==="active",canVote=eligible&&isActive&&!v.myVote,myVote=v.myVote;
+  const statusMap={active:'<span class="pc-status-badge status-active">● Active</span>',passed:'<span class="pc-status-badge status-passed">✓ Passed</span>',failed:'<span class="pc-status-badge status-failed">✗ Failed</span>'};
   const tagMap={treasury:"tag-treasury",protocol:"tag-protocol",emergency:"tag-emergency",parameter:"tag-parameter"};
-  const tagsHtml=(p.tags||[]).map(t=>`<span class="tag ${tagMap[t]||'tag-treasury'}">${t}</span>`).join("");
+  const tagsHtml=(p.tags||[]).map(t=>`<span class="tag ${tagMap[t]||'tag-treasury'}">${escapeHtml(t)}</span>`).join("");
+  const contactHtml=p.contact?`<div class="pc-contact"><span><b>${getContactLabel(p.contactType)}:</b> ${escapeHtml(p.contact)}</span></div>`:"";
   const timeStr=isActive?`<span class="time-left">Ends in <b>${timeLeft(p.endsAt)}</b></span>`:`<span class="time-left">Ended ${timeAgo(p.endsAt)}</span>`;
   const voteHtml=isActive?`<div class="vote-buttons"><button class="btn-vote btn-yes${myVote==='yes'?' voted':''}" ${!canVote&&myVote!=='yes'?'disabled':''} onclick="castVote('${p.id}','yes')">👍 Yes${myVote==='yes'?' ✓':''}</button><button class="btn-vote btn-no${myVote==='no'?' voted':''}" ${!canVote&&myVote!=='no'?'disabled':''} onclick="castVote('${p.id}','no')">👎 No${myVote==='no'?' ✓':''}</button><button class="btn-vote btn-abstain${myVote==='abstain'?' voted':''}" ${!canVote&&myVote!=='abstain'?'disabled':''} onclick="castVote('${p.id}','abstain')">— Abstain${myVote==='abstain'?' ✓':''}</button></div>`:`<span style="font-size:11px;color:var(--dim);font-family:'DM Mono',monospace">Voting closed</span>`;
-  const adminHtml=(wallet&&wallet.toLowerCase()===DEV_WALLET)?`<div style="display:flex;gap:7px;margin-left:auto">${isActive?`<button class="btn-admin btn-end" onclick="endProposal('${p.id}')">⏹ End</button>`:''}<button class="btn-admin btn-delete" onclick="deleteProposal('${p.id}')">🗑 Delete</button></div>`:'';
-  return `<div class="proposal-card${isActive?' active-vote':''}"><div class="pc-head"><div class="pc-id">${p.id}</div><div class="pc-meta"><div class="pc-title">${p.title}</div><div class="pc-desc">${p.desc}</div><div class="pc-tags">${tagsHtml}<span class="tag" style="color:var(--dim);border-color:var(--border)">by ${p.proposer}</span></div></div>${statusMap[p.status]||''}</div><div class="pc-body"><div class="vote-bars"><div class="vb-row"><div class="vb-label" style="color:var(--teal)">YES</div><div class="vb-track"><div class="vb-fill vb-fill-yes" id="bar-yes-${p.id}" style="width:0%"></div></div><div class="vb-pct" id="pct-yes-${p.id}" style="color:var(--teal)">—</div></div><div class="vb-row"><div class="vb-label" style="color:var(--red)">NO</div><div class="vb-track"><div class="vb-fill vb-fill-no" id="bar-no-${p.id}" style="width:0%"></div></div><div class="vb-pct" id="pct-no-${p.id}" style="color:var(--red)">—</div></div><div class="vb-row"><div class="vb-label" style="color:var(--dim)">ABS</div><div class="vb-track"><div class="vb-fill vb-fill-abstain" id="bar-abs-${p.id}" style="width:0%"></div></div><div class="vb-pct" id="pct-abs-${p.id}" style="color:var(--dim)">—</div></div></div><div class="vote-meta"><span><b>${fmtCTR(v.yes+v.no+v.abstain)} CTR</b> total votes</span><span><b>${v.voters.size}</b> voters</span><span>quorum: <b>${((v.yes+v.no+v.abstain)/1_000_000_000*100).toFixed(2)}%</b></span></div></div><div class="pc-foot">${timeStr}${voteHtml}${adminHtml}</div></div>`;
+  const adminHtml=(wallet&&wallet.toLowerCase()===DEV_WALLET)?`${isActive?`<button class="btn-admin btn-end" onclick="endProposal('${p.id}')">⏹ End</button>`:''}<button class="btn-admin btn-delete" onclick="deleteProposal('${p.id}')">🗑 Delete</button>`:'';
+  return `<div class="proposal-card${isActive?' active-vote':''}"><div class="pc-head"><div class="pc-id">${escapeHtml(p.id)}</div><div class="pc-meta"><div class="pc-title">${escapeHtml(p.title)}</div><div class="pc-desc">${escapeHtml(p.desc)}</div><div class="pc-tags">${tagsHtml}<span class="tag" style="color:var(--dim);border-color:var(--border)">by ${escapeHtml(p.proposer||'Unknown')}</span></div>${contactHtml}</div>${statusMap[derivedStatus]||''}</div><div class="pc-body"><div class="vote-bars"><div class="vb-row"><div class="vb-label" style="color:var(--teal)">YES</div><div class="vb-track"><div class="vb-fill vb-fill-yes" id="bar-yes-${p.id}" style="width:0%"></div></div><div class="vb-pct" id="pct-yes-${p.id}" style="color:var(--teal)">—</div></div><div class="vb-row"><div class="vb-label" style="color:var(--red)">NO</div><div class="vb-track"><div class="vb-fill vb-fill-no" id="bar-no-${p.id}" style="width:0%"></div></div><div class="vb-pct" id="pct-no-${p.id}" style="color:var(--red)">—</div></div><div class="vb-row"><div class="vb-label" style="color:var(--dim)">ABS</div><div class="vb-track"><div class="vb-fill vb-fill-abstain" id="bar-abstain-${p.id}" style="width:0%"></div></div><div class="vb-pct" id="pct-abstain-${p.id}" style="color:var(--dim)">—</div></div></div><div class="vote-meta"><span><b>${fmtCTR(v.yes+v.no+v.abstain)} CTR</b> total votes</span><span><b>${v.voters.size}</b> voters</span><span>quorum: <b>${((v.yes+v.no+v.abstain)/1_000_000_000*100).toFixed(2)}%</b></span></div></div><div class="pc-foot">${timeStr}<div class="pc-actions"><button class="btn-link" type="button" onclick="openProposalDetails('${p.id}')">Read full proposal</button>${voteHtml}${adminHtml?`<div style="display:flex;gap:7px">${adminHtml}</div>`:''}</div></div></div>`;
 }
 
 function isDevWallet(){return wallet&&wallet.toLowerCase()===DEV_WALLET}
@@ -547,14 +622,17 @@ async function endProposal(id){
   try{
     const d=await dbRead();
     const p=d.proposals.find(x=>x.id===id);
+    let result="failed";
     if(p){
       const v=d.votes&&d.votes[id]?d.votes[id]:{yes:0,no:0,abstain:0};
       const totalVotes=v.yes+v.no+v.abstain;
       const yesPct=totalVotes>0?(v.yes/totalVotes*100):0;
-      p.status=(yesPct>60)?"passed":"failed";
+      result=yesPct>60?"passed":"failed";
+      p.status=result;
+      p.endsAt=Date.now();
     }
     await dbWrite(d);
-    showToast("✓ Proposal ended: "+(p.status==="passed"?"Passed ✓":"Failed ✗"),"success");
+    showToast("✓ Proposal ended: "+(result==="passed"?"Passed ✓":"Failed ✗"),"success");
     await loadProposals();
   }catch(e){showToast("Error.","error")}
 }
@@ -563,9 +641,11 @@ async function deleteProposal(id){if(!isDevWallet())return;if(!confirm("Delete t
 function castVote(proposalId,choice){
   if(!wallet){showToast("Connect your wallet first.","info");return}
   if(!eligible){showToast("You need ≥ 1,000,000 CTR to vote.","error");return}
-  const v=votes[proposalId];if(v&&v.myVote){showToast("You already voted on this proposal.","info");return}
-  const p=proposals.find(x=>x.id===proposalId);pendingVote={proposalId,choice};
-  document.getElementById("voteModalProposal").textContent=p.title;
+  const proposal=proposals.find(x=>x.id===proposalId);
+  if(!proposal||getDerivedStatus(proposal)!=="active"){showToast("Voting on this proposal is closed.","info");return}
+  const v=getVoteState(proposalId);if(v&&v.myVote){showToast("You already voted on this proposal.","info");return}
+  pendingVote={proposalId,choice};
+  document.getElementById("voteModalProposal").textContent=proposal.title;
   const labels={yes:"👍 YES — In Favor",no:"👎 NO — Against",abstain:"— ABSTAIN"},colors={yes:"var(--teal)",no:"var(--red)",abstain:"var(--dim)"};
   const el=document.getElementById("voteModalChoice");el.textContent=labels[choice];el.style.color=colors[choice];
   document.getElementById("voteModalPower").textContent=fmtCTR(ctrBalance)+" CTR";
@@ -581,37 +661,52 @@ async function confirmVote(){
 async function applyVote(proposalId,choice,sig){
   try{const ld=await dbRead();const lv=(ld.votes||{})[proposalId];if(lv&&lv.voters&&lv.voters.includes(wallet.toLowerCase())){showToast("You have already voted on this proposal.","error");pendingVote=null;return}}catch(e){}
   if(!votes[proposalId])votes[proposalId]={yes:0,no:0,abstain:0,voters:new Set(),myVote:null};
-  const v=votes[proposalId];v[choice]+=ctrBalance;v.voters.add(wallet);v.myVote=choice;
+  const v=votes[proposalId];v[choice]+=ctrBalance;v.voters.add(wallet.toLowerCase());v.myVote=choice;
   localStorage.setItem("vote_"+proposalId,choice);pendingVote=null;renderProposals();updateStats();
   try{const d=await dbRead();if(!d.votes)d.votes={};if(!d.votes[proposalId])d.votes[proposalId]={yes:0,no:0,abstain:0,voters:[]};d.votes[proposalId][choice]=(d.votes[proposalId][choice]||0)+ctrBalance;if(!d.votes[proposalId].voters.includes(wallet.toLowerCase()))d.votes[proposalId].voters.push(wallet.toLowerCase());await dbWrite(d)}catch(e){console.error(e)}
 }
 
-function openPropose(){if(!wallet){showToast("Connect your wallet first.","info");return}if(!isWhitelisted(wallet)){showToast("You need at least 5,000,000 CTR to submit proposals.","error");return}if(!eligible){showToast("You need ≥ 1,000,000 CTR.","error");return}document.getElementById("proposeModal").classList.add("open")}
+function openPropose(){if(!wallet){showToast("Connect your wallet first.","info");return}if(!isWhitelisted(wallet)){showToast("You need at least 5,000,000 CTR to submit proposals.","error");return}if(!eligible){showToast("You need ≥ 1,000,000 CTR.","error");return}if(hasActiveProposal()){showToast("Only one proposal can be active at a time.","error");return}document.getElementById("proposeModal").classList.add("open")}
 function closePropose(){document.getElementById("proposeModal").classList.remove("open")}
 async function submitProposal(){
-  const title=document.getElementById("pTitle").value.trim(),desc=document.getElementById("pDesc").value.trim(),cat=document.getElementById("pCategory").value,dur=parseInt(document.getElementById("pDuration").value);
+  const title=document.getElementById("pTitle").value.trim(),desc=document.getElementById("pDesc").value.trim(),cat=document.getElementById("pCategory").value,dur=parseInt(document.getElementById("pDuration").value),contactType=document.getElementById("pContactType").value,contact=document.getElementById("pContact").value.trim();
   if(!title||!desc){showToast("Fill in title and description.","error");return}
   if(title.length<10){showToast("Title too short (min 10 chars).","error");return}
   if(desc.length<50){showToast("Description too short (min 50 chars).","error");return}
+  if(!contact){showToast("Add your X or Discord username for follow-up questions.","error");return}
   const btn=document.getElementById("btnSubmitPropose");btn.disabled=true;btn.textContent="Signing…";
-  const msg=`CTR Governance Proposal\nTitle: ${title}\nAuthor: ${wallet}\nTimestamp: ${Date.now()}`;
-  try{const sig=await window.ethereum.request({method:"personal_sign",params:[msg,wallet]});await addProposal(title,desc,cat,dur,sig)}
-  catch(e){if(e.code===4001)showToast("Proposal cancelled.","info");else showToast("Signing failed. Please try again.","error")}
+  const msg=`CTR Governance Proposal\nTitle: ${title}\nAuthor: ${wallet}\nContact: ${contactType}:${contact}\nTimestamp: ${Date.now()}`;
+  try{const sig=await window.ethereum.request({method:"personal_sign",params:[msg,wallet]});await addProposal(title,desc,cat,dur,contactType,contact,sig)}
+  catch(e){btn.disabled=false;btn.textContent="Submit Proposal";if(e.code===4001)showToast("Proposal cancelled.","info");else showToast("Signing failed. Please try again.","error")}
 }
-async function addProposal(title,desc,cat,durDays,sig){
+async function addProposal(title,desc,cat,durDays,contactType,contact,sig){
   const btn=document.getElementById("btnSubmitPropose");btn.disabled=true;btn.textContent="Saving…";
   try{
     const data=await dbRead();
-    if((data.proposals||[]).some(p=>p.title.toLowerCase()===title.toLowerCase())){showToast("A proposal with this title already exists.","error");btn.disabled=false;btn.textContent="Submit Proposal";return}
+    const existing=(data.proposals||[]).map(normalizeStoredProposal);
+    if(existing.some(p=>p.title.toLowerCase()===title.toLowerCase())){showToast("A proposal with this title already exists.","error");btn.disabled=false;btn.textContent="Submit Proposal";return}
+    if(hasActiveProposal(existing)){showToast("Finish the current live proposal before creating a new one.","error");btn.disabled=false;btn.textContent="Submit Proposal";return}
     const now=Date.now(),newId="CTR-"+String((data.proposals||[]).length).padStart(3,"0");
-    data.proposals=[{id:newId,title,desc,tags:[cat],status:"active",created:now,endsAt:now+durDays*86400000,proposer:truncAddr(wallet)},...(data.proposals||[])];
+    data.proposals=[{id:newId,title,desc,tags:[cat],status:"active",created:now,endsAt:now+durDays*86400000,proposer:truncAddr(wallet),contactType,contact},...(data.proposals||[])];
     if(!data.votes)data.votes={};data.votes[newId]={yes:0,no:0,abstain:0,voters:[]};
     await dbWrite(data);
-    document.getElementById("pTitle").value="";document.getElementById("pDesc").value="";
+    document.getElementById("pTitle").value="";document.getElementById("pDesc").value="";document.getElementById("pContact").value="";document.getElementById("pContactType").value="x";
     closePropose();showToast("🎉 Proposal "+newId+" submitted!","success");await loadProposals();
   }catch(e){showToast("Error saving proposal. Try again.","error");console.error(e)}
   btn.disabled=false;btn.textContent="Submit Proposal";
 }
+
+function openProposalDetails(id){
+  const proposal=proposals.find(p=>p.id===id);if(!proposal)return;
+  const status=getDerivedStatus(proposal);
+  document.getElementById("detailsTitle").textContent=proposal.title;
+  document.getElementById("detailsMeta").textContent=`${proposal.id} · Created ${timeAgo(proposal.created||proposal.endsAt)}`;
+  document.getElementById("detailsDesc").textContent=proposal.desc;
+  document.getElementById("detailsContact").textContent=proposal.contact?`${getContactLabel(proposal.contactType)}: ${proposal.contact}`:"No contact provided";
+  document.getElementById("detailsStatus").textContent=status.charAt(0).toUpperCase()+status.slice(1);
+  document.getElementById("detailsModal").classList.add("open");
+}
+function closeDetailsModal(){document.getElementById("detailsModal").classList.remove("open")}
 
 function showTab(t){
   document.querySelectorAll("header .nav-pill").forEach(b=>b.classList.remove("active"));
@@ -628,6 +723,7 @@ function showToast(msg,type="info"){const el=document.getElementById("toast");el
 
 document.getElementById("proposeModal").addEventListener("click",e=>{if(e.target.id==="proposeModal")closePropose()});
 document.getElementById("voteModal").addEventListener("click",e=>{if(e.target.id==="voteModal")closeVoteModal()});
+document.getElementById("detailsModal").addEventListener("click",e=>{if(e.target.id==="detailsModal")closeDetailsModal()});
 
 initData();loadWhitelist();loadProposals();
 </script>
